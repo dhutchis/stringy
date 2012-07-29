@@ -1,0 +1,1 @@
+dialyzer -pa ./ebin -I include -r src --src
