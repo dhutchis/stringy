@@ -1,0 +1,5 @@
+This is a personal store for some random string algorithms I've created.  
+Many are in response to the material and assignments in Dan Gusfield's
+Algorithms on Strings, Trees, and Sequences.
+
+erlangy/ has a circular substring test written in Erlang.
