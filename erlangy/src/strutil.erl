@@ -140,7 +140,7 @@ is_substr_of_circular_roatation_test_() ->
 				 ?_assertNot(is_substr_of_circular_roatation("abc", "bac")),
 				 ?_assertNot(is_substr_of_circular_roatation("abc", "g"))
 				],
-	Strs = ["banana", "tattarrattat", "abercrombie", ""],
+	Strs = ["banana", "tattarrattat", "abercrombie", "", "abcd", "aaaa"],
 	lists:foldl(fun(S, Acc) ->
 						[gen_rotate_tests(S) | Acc]
 				end, FailTests, Strs).
