@@ -1,0 +1,7 @@
+-od"bin"
+-of"bin\dstr.exe"
+
+-I"src"
+
+-unittest
+"src\strutil.d"
