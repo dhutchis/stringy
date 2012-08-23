@@ -1,3 +1,5 @@
+/// Authors: Dylan Hutchison
+
 import std.stdio;
 import std.range;
 import std.traits;
@@ -10,41 +12,49 @@ void main() {
 }
 
 /** Match of a single pattern in full to a single text. */
-class Match {
-	uint Tpos;
+struct Match {
+	uint Tpos ;
 	
 	this(uint Tpos) { this.Tpos = Tpos; }
 	
-	override size_t toHash() {
-		return to!size_t(Tpos);
-	}
-	
-	override bool opEquals(Object rhs) {
-		auto that = cast(Match) rhs;
-		return that && this.Tpos == that.Tpos;
-	}
-	
-	override string toString() {
+	string toString() {
 		return text("Match: Text@",Tpos);
+	}
+	
+	/**	Function that calls a stringfun and puts all the matches generated into an array, and then returns the entire array once finished.
+	
+	*/
+	static Match[] getAllMatches(alias stringfun, A...)(A args) 
+	if (is(typeof(stringfun!((Match m) {}, A) (args)) == void))
+	{
+		foreach(a; args)
+			writeln(a);
+		Match[] mall;
+		auto f = (Match m) { mall ~= m; };
+		stringfun!f(args);
+		return mall;
 	}
 }
 
 /** Match of a substring of a pattern to a single text. May specify length of match. */
-class SubMatch : Match {
-	uint Ppos;
-	uint length;
+struct SubMatch {
+	private Match _match; 
+	alias _match this;		// SubMatch is a subtype of Match
+	
+	uint Ppos = 0;
+	uint length = 0;
 	
 	this(uint Tpos, uint Ppos) { 
 		this(Tpos, Ppos, 0);
 	}
 	
 	this(uint Tpos, uint Ppos, uint length) {
-		super(Tpos);
+		_match = Match(Tpos);
 		this.Ppos = Ppos;
 		this.length = length;
 	}
 	
-	override string toString() {
+	string toString() {
 		 return text("Match: Text@",Tpos, "<-> Pattern@",Ppos) ~ (length > 0 ? text(" of length ",length) : "");
 		 //return text("Match: Pattern#",Pnum,"@",Ppos," <-> Text#",Tnum,"@",Tpos);//,"of len ",match.length, ":",match);
 	}	
@@ -54,7 +64,7 @@ class SubMatch : Match {
 	Accepts any forward range as the text and pattern whose underlying data are comparable by ==.
 	Accepts any function or delegate that takes a Match class and does something with it.
 */
-void naiveMatch(T,P,F)(T text, P pattern, F callback) 
+void naiveMatch(alias callback,T,P)(T text, P pattern) 
 if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.front) == bool) && is(typeof(callback(Match.init)) == void)) 
 {
 	T textCompStart = text.save();
@@ -70,7 +80,7 @@ if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.fron
 			posTcomp++; posPcomp++;
 		}
 		if (patternComp.empty)
-			callback( new Match(posT) );
+			callback( Match(posT) );
 		text.popFront();
 		posT++;
 	}
@@ -79,19 +89,21 @@ if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.fron
 unittest {
 	Match[] matches;
 	auto f = (Match m) { matches ~= m; };
-	naiveMatch("abcabc", "bc", f);
-	//writeln(typeid(f)); 
-	writeln(matches[0].Tpos);
-	writeln(matches[0].toHash());
-	writeln((new Match(1u)).toHash());
-	writeln(matches[0] == new Match(1));
-	//assert (matches == [new Match(1), new Match(4)]);
+	naiveMatch!f("abcabc", "bc");
+	assert(matches == [Match(1), Match(4)]);
 	
-	auto m1 = new Match(1), m2 = new Match(1);
-	writeln(m1.toHash());
-	writeln(m2.toHash());
-	writeln(m1 == m2);
-	writeln(is(typeof(m1) : Match));
+	matches = [];
+	naiveMatch!f("abcabc","");
+	Match[] allMatch;
+	foreach(i; 0 .. "abcabc".length)
+		allMatch ~= Match(i);
+	assert(matches == allMatch);
+	
+	// This crashes the compiler!! Assertion failure: 'fd && fd->inferRetType' on line 81 in file 'mangle.c'
+	// look here: http://d.puremagic.com/issues/show_bug.cgi?id=8499
+	// The point of doing all this is to make the above tests look nicer...
+//	static mats = Match.getAllMatches!naiveMatch("abcabc", "bc");
+//	writeln("mats is ",mats);
 }
 
 
