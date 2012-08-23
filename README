@@ -2,5 +2,12 @@ This is a personal store for some random string algorithms I've created.
 Many are in response to the material and assignments in Dan Gusfield's
 Algorithms on Strings, Trees, and Sequences.
 
-dstr/ is in progress.  Written in D.
-erlangy/ has a circular substring test written in Erlang.
+I've been playing around with different kinds of output for the string matching functions, from storing the output matches in regular arrays of unsigned ints or sparse associative arrays to streaming functions that find a new match (if there is another) every time you call them.  
+	The array versions are too inflexible - what if you need to store the results in some other format or a dynamic format - and I don't want to define the same function for different output types.  Also, using arrays as your output format you have to wait for the algorithm to finish before you can get results.  
+	The streaming output interferes with the actual string matching algorithm too much.  I would have to modify every algorithm so that it stops midway after a match is produced and can resume match searching on another call.
+
+So here's my solution: <b>callback functions</b>!  Then the client can do whatever he wants with the output results as soon as they are generated.  Of course, if it's something less trivial than storing the match or writing it to the screen, the client should consider doing it in another thread.  I like this design a lot better as it seperates the output cleanly from the string matching function logic.
+
+dstr/ is in progress.  Written in D.  
+
+erlangy/ has a circular substring test written in Erlang. I will probably not develop this further as I've realized that Erlang is neither a general nor a systems programming language; its best role in programming is application management.  Write your application in some other language and let Erlang supervise it and handle state tracking, communication and distribution.
