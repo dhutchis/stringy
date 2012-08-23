@@ -2,35 +2,60 @@ import std.stdio;
 import std.range;
 import std.traits;
 import std.typecons;
+import std.conv; //text
 
 void main() {
-	/*int[][char] st; 
-	if ('a' in st)
-		writeln("no");
-	else {
-		st['a'] = new int[5];
-		st['a'][2] = 7;
-	}
-	writeln( st['a'] );*/
-	/*uint[uint] Z;
-	writeln(Z = gen_z_nums_sparse("abcabcdabcabf"));*/
+	writeln("hey");
 	
 }
 
-struct Match {
-	uint posT;
-	uint posP;
+/** Match of a single pattern in full to a single text. */
+class Match {
+	uint Tpos;
+	
+	this(uint Tpos) { this.Tpos = Tpos; }
+	
+	override size_t toHash() {
+		return to!size_t(Tpos);
+	}
+	
+	override bool opEquals(Object rhs) {
+		auto that = cast(Match) rhs;
+		return that && this.Tpos == that.Tpos;
+	}
+	
+	override string toString() {
+		return text("Match: Text@",Tpos);
+	}
+}
+
+/** Match of a substring of a pattern to a single text. May specify length of match. */
+class SubMatch : Match {
+	uint Ppos;
 	uint length;
 	
-	static void writeln(Match m) {
-		.writefln("Match at %u of length %u", m.posT, m.length);
+	this(uint Tpos, uint Ppos) { 
+		this(Tpos, Ppos, 0);
 	}
 	
+	this(uint Tpos, uint Ppos, uint length) {
+		super(Tpos);
+		this.Ppos = Ppos;
+		this.length = length;
+	}
+	
+	override string toString() {
+		 return text("Match: Text@",Tpos, "<-> Pattern@",Ppos) ~ (length > 0 ? text(" of length ",length) : "");
+		 //return text("Match: Pattern#",Pnum,"@",Ppos," <-> Text#",Tnum,"@",Tpos);//,"of len ",match.length, ":",match);
+	}	
 }
 
-// naive matching O(nm)
+/** naive matching O(nm)
+	Accepts any forward range as the text and pattern whose underlying data are comparable by ==.
+	Accepts any function or delegate that takes a Match class and does something with it.
+*/
 void naiveMatch(T,P,F)(T text, P pattern, F callback) 
-if (isForwardRange!T && isForwardRange!P && is(typeof(callback(Match())) == void)) 
+if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.front) == bool) && is(typeof(callback(Match.init)) == void)) 
 {
 	T textCompStart = text.save();
 	P patternFront = pattern.save();
@@ -45,22 +70,28 @@ if (isForwardRange!T && isForwardRange!P && is(typeof(callback(Match())) == void
 			posTcomp++; posPcomp++;
 		}
 		if (patternComp.empty)
-			callback( Match(posT, 0, posPcomp) );
+			callback( new Match(posT) );
 		text.popFront();
 		posT++;
 	}
 }
 
 unittest {
-	auto x = 2;
-	auto f = (Match m) { .writefln("Match at %u of length %u with bonus %d", m.posT, m.length, 2); };
+	Match[] matches;
+	auto f = (Match m) { matches ~= m; };
 	naiveMatch("abcabc", "bc", f);
-	writeln(typeid(f)); 
+	//writeln(typeid(f)); 
+	writeln(matches[0].Tpos);
+	writeln(matches[0].toHash());
+	writeln((new Match(1u)).toHash());
+	writeln(matches[0] == new Match(1));
+	//assert (matches == [new Match(1), new Match(4)]);
 	
-	Tuple!(uint,uint,uint)[] tups;
-	auto fall = (Match m) { tups ~= Tuple!(uint,uint,uint)(m.posT, m.posP, m.length); };
-	naiveMatch("abcabc", "bc", fall);
-	writeln(tups);
+	auto m1 = new Match(1), m2 = new Match(1);
+	writeln(m1.toHash());
+	writeln(m2.toHash());
+	writeln(m1 == m2);
+	writeln(is(typeof(m1) : Match));
 }
 
 
