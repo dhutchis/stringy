@@ -7,7 +7,10 @@ import std.typecons;
 import std.conv; //text
 
 void main() {
-	writeln("hey");
+	auto text = "barry goldwater hunted for gold beneath a golden sunset";
+	string[uint] aa;
+	naiveMatch!((Match m) { aa[m.Tpos] = text[m.Tpos .. $]; return false; })(text, "gold");
+	writeln(aa);
 	
 }
 
@@ -25,13 +28,26 @@ struct Match {
 	
 	*/
 	static Match[] getAllMatches(alias stringfun, A...)(A args) 
-	if (is(typeof(stringfun!((Match m) {}, A) (args)) == void))
-	{
-		foreach(a; args)
+	//if (is(typeof(stringfun!(function bool(Match m) {return false;}, A) (args)) == void))
+	// COMPILER BUG ^ The above line should work, but it breaks the compiler...
+	// Assertion failure: 'fd && fd->inferRetType' on line 81 in file 'mangle.c'
+	// look here: http://d.puremagic.com/issues/show_bug.cgi?id=8499
+	// The point of doing all this is to make the unittests look nicer...
+	in {
+		// this will have to suffice
+		static if (!is(typeof(stringfun!(function bool(Match m) {return false;}, A) (args)) == void))
+			assert(false, "bad argument to getAllMatches");
+	}
+	body {
+		
+		/*foreach(a; args)
 			writeln(a);
+		foreach(a; A)
+			writeln(typeid(a));
+		writeln(typeid(stringfun!((Match m) {return false;}, A) (args)) );
+		*/
 		Match[] mall;
-		auto f = (Match m) { mall ~= m; };
-		stringfun!f(args);
+		stringfun!((Match m) { mall ~= m; return false; }, A)(args);
 		return mall;
 	}
 }
@@ -60,12 +76,13 @@ struct SubMatch {
 	}	
 }
 
+
 /** naive matching O(nm)
 	Accepts any forward range as the text and pattern whose underlying data are comparable by ==.
-	Accepts any function or delegate that takes a Match class and does something with it.
+	Accepts any function or delegate that takes a Match class and does something with it; STOPS the search if the function returns true.
 */
 void naiveMatch(alias callback,T,P)(T text, P pattern) 
-if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.front) == bool) && is(typeof(callback(Match.init)) == void)) 
+if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.front) == bool) && is(typeof(callback(Match.init)) == bool)) 
 {
 	T textCompStart = text.save();
 	P patternFront = pattern.save();
@@ -80,33 +97,51 @@ if (isForwardRange!T && isForwardRange!P && is(typeof(text.front == pattern.fron
 			posTcomp++; posPcomp++;
 		}
 		if (patternComp.empty)
-			callback( Match(posT) );
+			if (callback( Match(posT) ))
+				return;
 		text.popFront();
 		posT++;
 	}
 }
 
+// A lot of these tests are an attempt to have fun with compile-time execution ^.^
 unittest {
-	Match[] matches;
-	auto f = (Match m) { matches ~= m; };
+	static Match[] matches;
+	auto f = (Match m) { matches ~= m; return false; };
 	naiveMatch!f("abcabc", "bc");
 	assert(matches == [Match(1), Match(4)]);
 	
 	matches = [];
 	naiveMatch!f("abcabc","");
-	Match[] allMatch;
+	static Match[] allMatch;
 	foreach(i; 0 .. "abcabc".length)
 		allMatch ~= Match(i);
 	assert(matches == allMatch);
 	
-	// This crashes the compiler!! Assertion failure: 'fd && fd->inferRetType' on line 81 in file 'mangle.c'
-	// look here: http://d.puremagic.com/issues/show_bug.cgi?id=8499
-	// The point of doing all this is to make the above tests look nicer...
-//	static mats = Match.getAllMatches!naiveMatch("abcabc", "bc");
-//	writeln("mats is ",mats);
+	
+	static mats = Match.getAllMatches!naiveMatch("abcabc", "bc");
+	writeln("mats is ",mats);
+	assert(mats == [Match(1), Match(4)]);
+	
+	static assert(Match.getAllMatches!naiveMatch("abcabc", "a") == [Match(0), Match(3)]);
+	static assert(Match.getAllMatches!naiveMatch("", "a") == []);
+	static assert(Match.getAllMatches!naiveMatch("", "") == []);
+		
+	enum mas = () {
+			Match[] mm;
+			naiveMatch!((Match m) { mm ~= m; return false; })("abcabc", "bc");
+			return mm;
+		}();
+	static assert(mas == [Match(1), Match(4)]);
+	
+	// test the ability to stop prematurely
+	enum mas2 = () {
+			Match[] mm;
+			naiveMatch!((Match m) { mm ~= m; return m.Tpos == 1u; })("abcabc", "bc");
+			return mm;
+		}();
+	static assert(mas2 == [Match(1)]);
 }
-
-
 
 
 
